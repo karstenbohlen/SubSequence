@@ -16,143 +16,112 @@
 
 #include <iostream>
 #include <vector>
-#include <list>
-#include <iterator>
-#include <cstdlib>
-#include <cstdio>
-using namespace std;
+#include <unordered_map>
+#include <memory>
+#include <fstream>
 
 typedef long long u64;
 
-
 class SubSequencer 
 {
-    public: 
-        SubSequencer(vector<char> sequence, vector<char> alphabet)
-        {
-            this->sequence = sequence;
-            this->alphabet = alphabet;
+public: 
+    SubSequencer(const std::vector<char>& sequence, const std::vector<char>& alphabet)
+        : sequence(sequence), alphabet(alphabet) {
+        for (size_t i = 0; i < alphabet.size(); ++i) {
+            alphabet_map[alphabet[i]] = i;
         }
-        
-        SubSequencer()
-        {
-            
-        }
+    }
+
+    SubSequencer() {}
     
-        ~SubSequencer()
-        {
-        
-        }
-        
-        vector<char> getSequence()
-        {
-            return sequence;
-        }
-     
-        vector<char> getAlphabet()
-        {
-            return alphabet;
-        }
-     
-        u64 subSequence(u64 n, u64 m)
-        {
-            u64 size = (m+1)*(n+1);
-            C = new u64[size];	
+    std::vector<char> getSequence() const {
+        return sequence;
+    }
 
-            for (int i = 0; i < m+1; i++)
-                for (int j = 0; j < n+1; j++)
-                    C[c2n(i,j)] = 0;
+    std::vector<char> getAlphabet() const {
+        return alphabet;
+    }
 
-            C[c2n(0,0)] = 1;
-            int i = 1, j = 1;
+    u64 subSequence(u64 n, u64 m) {
+        std::vector<u64> C((m+1)*(n+1), 0);
+        C[0] = 1;
+        int i = 1, j = 1;
 
-            for (int k = 0; k < sequence.size(); k++, i++)
-            {
-                j = position(sequence[k])+1;
+        for (size_t k = 0; k < sequence.size(); k++, i++) {
+            j = position(sequence[k])+1;
 
-                for (int p = 1; p < n+1; p++)
-                {
-                    C[c2n(i,p)] = C[c2n(i-1,p)];
-                    if (p != j)
-                        C[c2n(i-1,p)] = 0;
-                }
-
-                u64 d = C[c2n(i-1,0)] - C[c2n(i-1,j)];
-                C[c2n(i,0)] = d + C[c2n(i-1,0)];
-                C[c2n(i,j)] = d + C[c2n(i-1,j)];
-                C[c2n(i-1,0)] = 0;
-                C[c2n(i-1,j)] = 0;
+            for (u64 p = 1; p < n+1; p++) {
+                C[c2n(i,p)] = C[c2n(i-1,p)];
+                if (p != j)
+                    C[c2n(i-1,p)] = 0;
             }
 
-            u64 res = C[c2n(m,0)];
-            delete [] C;
+            u64 d = C[c2n(i-1,0)] - C[c2n(i-1,j)];
+            C[c2n(i,0)] = d + C[c2n(i-1,0)];
+            C[c2n(i,j)] = d + C[c2n(i-1,j)];
+            C[c2n(i-1,0)] = 0;
+            C[c2n(i-1,j)] = 0;
+        }
 
-            return res;
+        return C[c2n(m,0)];
+    }
+    
+    void read(const std::string& filename) {
+        std::ifstream file(filename);
+        if (!file) {
+            std::cerr << "Failed to open file\n";
+            return;
+        }
+
+        char c;
+        while (file.get(c)) {
+            if (position(c) == -1)
+                alphabet.push_back(c);
+            sequence.push_back(c);
         }
         
-        void read(FILE *file)
-        {
-            char c;
-            
-            while (c != EOF)
-            {
-                c = getc(file);
-	
-                if (position(c) == -1)
-                    alphabet.push_back(c);
-                sequence.push_back(c);
-            }
-	
-            sequence.pop_back(); sequence.pop_back();
-            alphabet.pop_back(); alphabet.pop_back();
-            
+        for (size_t i = 0; i < alphabet.size(); ++i) {
+            alphabet_map[alphabet[i]] = i;
         }
+    }
     
-    private: 
-        int position(char c) {
-            for (unsigned i = 0; i < alphabet.size(); ++i)
-                if (c == alphabet[i])
-                    return i;
-            return -1;
-        }
+private: 
+    int position(char c) const {
+        auto it = alphabet_map.find(c);
+        if (it != alphabet_map.end())
+            return it->second;
+        return -1;
+    }
 
-        int c2n(int i, int j) {
-            return i*(alphabet.size()+1) + j;
-        }
+    int c2n(int i, int j) const {
+        return i*(alphabet.size()+1) + j;
+    }
     
-        u64 *C;
-        vector<char> sequence;    
-        vector<char> alphabet;
+    std::vector<char> sequence;    
+    std::vector<char> alphabet;
+    std::unordered_map<char, int> alphabet_map;
 };
-
-
 
 int main(int argc, char *argv[])
 {
-	if (argc != 2) {
-		cerr << "Missing filename!" << endl;
-		return 1;
-	}
+    if (argc != 2) {
+        std::cerr << "Missing filename!\n";
+        return 1;
+    }
 
-	FILE *file = fopen(argv[1], "r");
-	char c;	
-    
-	u64 m = 0, n;
-    
     SubSequencer subsequencer;
-    subsequencer.read(file);
+    subsequencer.read(argv[1]);
 
-	cout << endl;
+    u64 m = subsequencer.getSequence().size();
+    u64 n = subsequencer.getAlphabet().size();
 
-	m = subsequencer.getSequence().size();
-	n = subsequencer.getAlphabet().size();
+    std::cout << "=> alphabet size: " << n << "\n"
+              << "=> sequence length: " << m << "\n"
+              << "=================================\n"
+              << "number of subsequences: " << subsequencer.subSequence(n, m) << "\n";
 
-	cout << "=> alphabet size: " << n << "\n"
-		<< "=> sequence length: " << m << "\n"
-		<< "=================================\n";
-	cout << "number of subsequences: " << subsequencer.subSequence(n, m) << endl;
-
-	return 0;
+    return 0;
 }
+
 
 
